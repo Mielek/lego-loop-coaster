@@ -99,7 +99,7 @@ void readState() {
               | cartOnLiftValue << 1
               | cartTopValue << 2
               | cartStationValue << 3
-              | 1 << 7;
+              | 1 << 4;
 
   liftUpValue = !digitalRead(liftUpDSP);
   liftMiddle1Value = !digitalRead(liftMiddle1DSP);
@@ -109,13 +109,13 @@ void readState() {
   liftMiddle5Value = digitalReadTreshlod(liftMiddle5ASP, 850);
   liftDownValue = digitalRead(liftDownDSP);
 
-  liftFlags = liftUpValue
+  liftFlags = liftDownValue
               | liftMiddle1Value << 1
               | liftMiddle2Value << 2
               | liftMiddle3Value << 3
               | liftMiddle4Value << 4
               | liftMiddle5Value << 5
-              | liftDownValue << 6
+              | liftUpValue << 6
               | 1 << 7;
 }
 
@@ -131,7 +131,7 @@ void loop() {
   }
   if (Serial.peek() > -1) {
     serialRead = Serial.read();
-    Serial.println(serialRead);
+    Serial.print(serialRead);
 
     if (serialRead == 'S') {
       analogWrite(PWM2Pin, 128);
