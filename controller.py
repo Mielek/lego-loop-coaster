@@ -77,7 +77,7 @@ class Controller(Thread):
         if action is not None:
           action(value)
 
-    process(Lift_Down, self.on_lift_down,)
+    process(Lift_Down, self.on_lift_down)
     process(Lift_Middle_1, self.on_lift_middle_1)
     process(Lift_Middle_2, self.on_lift_middle_2)
     process(Lift_Middle_3, self.on_lift_middle_3)
@@ -130,17 +130,25 @@ class Controller(Thread):
         action = self.action_queue.get()
         key = action["key"]
         if key == "forward":
+          value = action["value"].to_bytes(1, 'little')
+          logging.debug("Sending forward command {}", value)
           self.connection.write(Command_Forward)
-          self.connection.write(action["value"].to_bytes(1, 'little'))
+          self.connection.write(value)
         elif key == "backward":
+          value = action["value"].to_bytes(1, 'little')
+          logging.debug("Sending backward command {}", value)
           self.connection.write(Command_Backward)
-          self.connection.write(action["value"].to_bytes(1, 'little'))
+          self.connection.write(value)
         elif key == "stop":
+          logging.debug("Senting stop command")
           self.connection.write(Command_Stop)
           self.connection.write(b'\x00')
         elif key == "exit":
+          logging.debug("Senting stop command")
           self.connection.write(Command_Stop)
-          self.connection.write(b'\x00')
+          self.connection.write(b'\x00')\
+
+          logging.debug("Exiting sensor loop")
           self.is_avaliable = False
         else:
           logging.warning("Unknow action {}", action)
