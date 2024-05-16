@@ -54,8 +54,11 @@ class Controller(Thread):
 
   def stop(self):
     self.action_queue.put({ "key": "exit" })
+    self.connection.write(Command_Stop)
+    self.connection.write(b'\x00')
     if current_thread().name != self.name:
       self.join()
+    self.connection.close()
 
   def motor_stop(self):
     self.action_queue.put({ "key": "stop" })
@@ -154,5 +157,3 @@ class Controller(Thread):
           logging.warning("Unknow action {}", action)
 
       pass
-
-    self.connection.close()
