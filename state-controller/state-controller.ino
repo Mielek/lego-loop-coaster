@@ -177,6 +177,6 @@ void loop()
   sendState();
   readCommand();
 
-  unsigned long delta = 10UL + currTime - millis();
+  unsigned long delta = 50UL + currTime - millis();
   delay(delta);
 }
