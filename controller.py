@@ -73,7 +73,7 @@ class Controller(Thread):
     def process(flag, action):
       if changed_lift_state & flag > 0:
         value = True if state & flag > 0 else False
-        logger.debug("Lift {} flag chage {} -> {}",flag, not value, value)
+        logging.debug("Lift {} flag chage {} -> {}",flag, not value, value)
         if action is not None:
           action(value)
 
@@ -93,7 +93,7 @@ class Controller(Thread):
     def process(flag, action):
       if changed_cart_state & flag > 0:
         value = True if state & flag > 0 else False
-        logger.debug("Cart {} flag chage {} -> {}",flag, not value, value)
+        logging.debug("Cart {} flag chage {} -> {}",flag, not value, value)
         if action is not None:
           action(value)
 
