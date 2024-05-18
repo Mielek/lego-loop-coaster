@@ -31,7 +31,7 @@ class Controller(Thread):
   motor_state = Command_Stop
   motor_speed = 0
 
-  on_lift_down = None
+  on_lift_bottom = None
   on_lift_middle_1 = None
   on_lift_middle_2 = None
   on_lift_middle_3 = None
@@ -53,9 +53,9 @@ class Controller(Thread):
 
 
   def stop(self):
-    self.action_queue.put({ "key": "exit" })
     self.connection.write(Command_Stop)
     self.connection.write(b'\x00')
+    self.action_queue.put({ "key": "exit" })
     if current_thread().name != self.name:
       self.join()
     self.connection.close()
@@ -71,7 +71,6 @@ class Controller(Thread):
 
   def fire_lift_events(self, state):
     changed_lift_state = self.last_lift_state ^ state
-    logging.debug("{}, {}, {}".format(self.last_lift_state, state, changed_lift_state))
 
     def process(flag, action):
       if changed_lift_state & flag > 0:
@@ -80,7 +79,7 @@ class Controller(Thread):
         if action is not None:
           action(value)
 
-    process(Lift_Down, self.on_lift_down)
+    process(Lift_Down, self.on_lift_bottom)
     process(Lift_Middle_1, self.on_lift_middle_1)
     process(Lift_Middle_2, self.on_lift_middle_2)
     process(Lift_Middle_3, self.on_lift_middle_3)
@@ -147,9 +146,9 @@ class Controller(Thread):
           self.connection.write(Command_Stop)
           self.connection.write(b'\x00')
         elif key == "exit":
-          logging.debug("Senting stop command")
-          self.connection.write(Command_Stop)
-          self.connection.write(b'\x00')\
+          # logging.debug("Senting stop command")
+          # self.connection.write(Command_Stop)
+          # self.connection.write(b'\x00')\
 
           logging.debug("Exiting sensor loop")
           self.is_avaliable = False

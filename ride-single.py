@@ -8,49 +8,53 @@ logging.basicConfig(
   )
 
 controller = Controller()
-states = {
-  "lift_down": False,
-  "rode": False
-}
 
-def on_lift_down(value):
-  global states, controller
-  states["lift_down"] = value
+class State:
+  lift_bottom = False
+  rode = False
+
+state = State()
+
+def on_lift_bottom(value):
+  global state, controller
+  state.lift_bottom = value
 
 def on_cart_lift(value):
-  global states, controller
-  if value and states["lift_down"]:
+  global state, controller
+  if value and state.lift_bottom:
     controller.motor_forward(126)
     on_lift = True
 
 def on_lift_top(value):
-  global states, controller
+  global state, controller
   controller.motor_stop()
 
 def on_cart_ride_finish(value):
-  global states, controller
+  global state, controller
   if value:
-    states["rode"] = True
+    state.rode = True
     controller.motor_forward(96)
 
 def on_cart_station(value):
-  global states, controller
-  if value and states["rode"]:
+  global state, controller
+  if value and state.rode:
     controller.stop()
 
 
 controller.on_cart_lift = on_cart_lift
 controller.on_lift_top = on_lift_top
-controller.on_lift_down = on_lift_down
+controller.on_lift_bottom = on_lift_bottom
 controller.on_cart_ride_finish = on_cart_ride_finish
 controller.on_cart_station = on_cart_station
 
 controller.start()
 
+logging.info("Single ride")
 controller.motor_forward(128)
 
 try:
   controller.join()
+  logging.info("Ride finished")
 except KeyboardInterrupt:
   controller.stop()
   pass
