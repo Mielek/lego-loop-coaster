@@ -11,7 +11,7 @@ Lift_Middle_2 = 0b00000100
 Lift_Middle_3 = 0b00001000
 Lift_Middle_4 = 0b00010000
 Lift_Middle_5 = 0b00100000
-Lift_Top       = 0b01000000
+Lift_Top      = 0b01000000
 
 Cart_RideStart  = 0b00000001
 Cart_RideFinish = 0b00000010
@@ -23,6 +23,7 @@ Command_Forward   = b'\x01'
 Command_Backward  = b'\x02'
 Command_Probe     = b'\x03'
 Command_Treshhold = b'\x04'
+Command_Mode      = b'\x05'
 
 class ControllerEvent:
   def __init__(self, key, value = None):

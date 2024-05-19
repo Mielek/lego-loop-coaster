@@ -2,8 +2,6 @@
  * Arduino state controller for lego loop coster
 */
 
-// #define DEBUG
-
 /**
  * Pins
 */
@@ -27,13 +25,68 @@ static const byte Pin_Cart_Ride_Start = 9;
 static const byte Pin_Cart_On_Lift = 12;
 static const byte Pin_Cart_At_Station = A4;
 
+struct LiftFlags
+{
+  uint8_t bottom  : 1;
+  uint8_t middle1 : 1;
+  uint8_t middle2 : 1;
+  uint8_t middle3 : 1;
+  uint8_t middle4 : 1;
+  uint8_t middle5 : 1;
+  uint8_t up      : 1;
+};
+
+struct CartFlags
+{
+  uint8_t rideStart  : 1;
+  uint8_t rideFinish : 1;
+  uint8_t atStation  : 1;
+  uint8_t onLift     : 1;
+};
 enum MotorState
 {
-  Motor_Stopped   = B00000000,
-  Motor_Forward   = B00000001,
-  Motor_Backward  = B00000010,
-} motorState;
-byte motorSpeed = 0;
+  Stopped   = B00000000,
+  Forward   = B00000001,
+  Backward  = B00000010,
+};
+
+struct Sensors
+{
+  struct LiftFlags liftFlags;
+  struct CartFlags cartFlags;
+  enum MotorState motorState;
+  uint8_t motorSpeed;
+
+  uint8_t rawLiftDown;
+  uint8_t rawLiftMiddle1;
+  uint16_t rawLiftMiddle2;
+  uint16_t rawLiftMiddle3;
+  uint16_t rawLiftMiddle4;
+  uint16_t rawLiftMiddle5;
+  uint8_t rawLiftUp;
+
+  uint8_t rawCartRideStart;
+  uint8_t rawCartRideFinish;
+  uint8_t rawCartOnLift;
+  uint16_t rawCartAtStation;
+};
+static const size_t basicSize = 4;
+static const size_t fullSize = 20;
+
+union State
+{
+  struct Sensors sensors;
+  char buff[fullSize];
+} state;
+
+unsigned long probeSleep = 20UL;
+uint16_t threshhold = 750;
+
+enum SerialMode
+{
+  Default = B00000000,
+  Full = B00000001,
+} serialMode;
 
 enum Commands
 {
@@ -42,33 +95,32 @@ enum Commands
   Command_Motor_Backward    = B00000010,
   Command_Set_Probe_Sleep   = B00000011,
   Command_Set_Threshhold    = B00000100,
+  Command_Set_Mode          = B00000101,
 };
 
 void motorForward(byte speed)
 {
-  motorState = Motor_Forward;
-  motorSpeed = speed;
+  state.sensors.motorState = MotorState::Forward;
+  state.sensors.motorSpeed = speed;
   analogWrite(Pin_PWM_1, 0);
   analogWrite(Pin_PWM_2, speed);
 }
 
 void motorBackward(byte speed)
 {
-  motorState = Motor_Backward;
-  motorSpeed = speed;
+  state.sensors.motorState = MotorState::Backward;
+  state.sensors.motorSpeed = speed;
   analogWrite(Pin_PWM_1, speed);
   analogWrite(Pin_PWM_2, 0);
 }
 
 void motorStop()
 {
-  motorState = Motor_Stopped;
-  motorSpeed = 0;
+  state.sensors.motorState = MotorState::Stopped;
+  state.sensors.motorSpeed = 0;
   analogWrite(Pin_PWM_1, 0);
   analogWrite(Pin_PWM_2, 0);
 }
-
-unsigned long probeSleep = 20UL;
 
 void setupMotorPins()
 {
@@ -76,8 +128,6 @@ void setupMotorPins()
   pinMode(Pin_PWM_2, OUTPUT);
   motorStop();
 }
-
-int threshhold = 750;
 
 void setupSensorsPins()
 {
@@ -95,49 +145,33 @@ void setupSensorsPins()
   pinMode(Pin_Cart_On_Lift, INPUT);
 }
 
-int sensorRawLiftDown = 0;
-int sensorRawLiftMiddle1 = 0;
-int sensorRawLiftMiddle2 = 0;
-int sensorRawLiftMiddle3 = 0;
-int sensorRawLiftMiddle4 = 0;
-int sensorRawLiftMiddle5 = 0;
-int sensorRawLiftUp = 0;
-
-int sensorRawCartRideStart= 0;
-int sensorRawCartRideFinish = 0;
-int sensorRawCartAtStation = 0;
-int sensorRawCartOnLift = 0;
-
-int liftFlags = 0;
-int cartFlags = 0;
-
 void updateSensorState()
 {
-  sensorRawLiftDown = digitalRead(Pin_Lift_Down);
-  sensorRawLiftMiddle1 = digitalRead(Pin_Lift_Middle_1);
-  sensorRawLiftMiddle2 = analogRead(Pin_Lift_Middle_2);
-  sensorRawLiftMiddle3 = analogRead(Pin_Lift_Middle_3);
-  sensorRawLiftMiddle4 = analogRead(Pin_Lift_Middle_4);
-  sensorRawLiftMiddle5 = analogRead(Pin_Lift_Middle_5);
-  sensorRawLiftUp = digitalRead(Pin_Lift_Up);
+  state.sensors.rawLiftDown = digitalRead(Pin_Lift_Down);
+  state.sensors.rawLiftMiddle1 = digitalRead(Pin_Lift_Middle_1);
+  state.sensors.rawLiftMiddle2 = analogRead(Pin_Lift_Middle_2);
+  state.sensors.rawLiftMiddle3 = analogRead(Pin_Lift_Middle_3);
+  state.sensors.rawLiftMiddle4 = analogRead(Pin_Lift_Middle_4);
+  state.sensors.rawLiftMiddle5 = analogRead(Pin_Lift_Middle_5);
+  state.sensors.rawLiftUp = digitalRead(Pin_Lift_Up);
 
-  sensorRawCartRideStart = digitalRead(Pin_Cart_Ride_Start);
-  sensorRawCartRideFinish = digitalRead(Pin_Cart_Ride_Finish);
-  sensorRawCartAtStation = analogRead(Pin_Cart_At_Station);
-  sensorRawCartOnLift = digitalRead(Pin_Cart_On_Lift);
+  state.sensors.rawCartRideStart = digitalRead(Pin_Cart_Ride_Start);
+  state.sensors.rawCartRideFinish = digitalRead(Pin_Cart_Ride_Finish);
+  state.sensors.rawCartAtStation = analogRead(Pin_Cart_At_Station);
+  state.sensors.rawCartOnLift = digitalRead(Pin_Cart_On_Lift);
 
-  liftFlags = sensorRawLiftDown << 0
-  | !sensorRawLiftMiddle1 << 1
-  | (sensorRawLiftMiddle2 < threshhold ? 1 : 0) << 2
-  | (sensorRawLiftMiddle3 < threshhold ? 1 : 0) << 3
-  | (sensorRawLiftMiddle4 < threshhold ? 1 : 0) << 4
-  | (sensorRawLiftMiddle5 < threshhold ? 1 : 0) << 5
-  | !sensorRawLiftUp << 6;
+  state.sensors.liftFlags.bottom  = state.sensors.rawLiftDown & B1;
+  state.sensors.liftFlags.middle1 = !(state.sensors.rawLiftMiddle1 & B1);
+  state.sensors.liftFlags.middle2 = state.sensors.rawLiftMiddle2 < threshhold ? B1 : B0;
+  state.sensors.liftFlags.middle3 = state.sensors.rawLiftMiddle3 < threshhold ? B1 : B0;
+  state.sensors.liftFlags.middle4 = state.sensors.rawLiftMiddle4 < threshhold ? B1 : B0;
+  state.sensors.liftFlags.middle5 = state.sensors.rawLiftMiddle5 < threshhold ? B1 : B0;
+  state.sensors.liftFlags.up      = !(state.sensors.rawLiftUp & B1);
 
-  cartFlags = !sensorRawCartRideStart << 0
-  | !sensorRawCartRideFinish << 1
-  | (sensorRawCartAtStation < threshhold ? 1 : 0) << 2
-  | !sensorRawCartOnLift << 3;
+  state.sensors.cartFlags.rideStart   = !(state.sensors.rawCartRideStart & B1);
+  state.sensors.cartFlags.rideFinish  = !(state.sensors.rawCartRideFinish & B1);
+  state.sensors.cartFlags.atStation   = state.sensors.rawCartAtStation < threshhold ? B1 : B0;
+  state.sensors.cartFlags.onLift      = !(state.sensors.rawCartOnLift & B1);
 }
 
 void setup()
@@ -171,7 +205,10 @@ void readCommand()
       probeSleep = buffer[1];
       break;
     case Command_Set_Threshhold:
-      threshhold = ((int) buffer[1]) * 10;
+      threshhold = ((uint16_t) buffer[1]) * 10;
+      break;
+    case Command_Set_Mode:
+      serialMode = (SerialMode)buffer[1];
       break;
     default:
       break;
@@ -181,29 +218,14 @@ void readCommand()
 
 void sendState()
 {
-  #ifdef DEBUG
-  Serial.print(liftFlags); Serial.print(',');
-  Serial.print(cartFlags); Serial.print(',');
-  Serial.print(motorState); Serial.print(',');
-  Serial.print(motorSpeed); Serial.print(',');
-  Serial.print(sensorRawLiftDown); Serial.print(',');
-  Serial.print(sensorRawLiftMiddle1); Serial.print(',');
-  Serial.print(sensorRawLiftMiddle2); Serial.print(',');
-  Serial.print(sensorRawLiftMiddle3); Serial.print(',');
-  Serial.print(sensorRawLiftMiddle4); Serial.print(',');
-  Serial.print(sensorRawLiftMiddle5); Serial.print(',');
-  Serial.print(sensorRawLiftUp); Serial.print(',');
-  Serial.print(sensorRawCartOnLift); Serial.print(',');
-  Serial.print(sensorRawCartAtStation); Serial.print(',');
-  Serial.print(sensorRawCartRideFinish); Serial.print(',');
-  Serial.print(sensorRawCartRideStart);
-  Serial.println();
-  #else
-  Serial.write(liftFlags);
-  Serial.write(cartFlags);
-  Serial.write(motorState);
-  Serial.write(motorSpeed);
-  #endif
+  if(serialMode == SerialMode::Default)
+  {
+    Serial.write(state.buff, basicSize);
+  }
+  else if (serialMode == SerialMode::Full)
+  {
+    Serial.write(state.buff, fullSize);
+  }
 }
 
 void loop()
