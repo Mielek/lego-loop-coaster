@@ -2,6 +2,8 @@
  * Arduino state controller for lego loop coster
 */
 
+// #define DEBUG
+
 /**
  * Pins
 */
@@ -27,11 +29,20 @@ static const byte Pin_Cart_At_Station = A4;
 
 enum MotorState
 {
-  Motor_Stopped = B00000000,
-  Motor_Forward = B00000001,
-  Motor_Backward = B00000010,
+  Motor_Stopped   = B00000000,
+  Motor_Forward   = B00000001,
+  Motor_Backward  = B00000010,
 } motorState;
 byte motorSpeed = 0;
+
+enum Commands
+{
+  Command_Motor_Stop        = B00000000,
+  Command_Motor_Forward     = B00000001,
+  Command_Motor_Backward    = B00000010,
+  Command_Set_Probe_Sleep   = B00000011,
+  Command_Set_Threshhold    = B00000100,
+};
 
 void motorForward(byte speed)
 {
@@ -57,6 +68,8 @@ void motorStop()
   analogWrite(Pin_PWM_2, 0);
 }
 
+unsigned long probeSleep = 20UL;
+
 void setupMotorPins()
 {
   pinMode(Pin_PWM_1, OUTPUT);
@@ -64,7 +77,7 @@ void setupMotorPins()
   motorStop();
 }
 
-static const int threshhold = 900;
+int threshhold = 750;
 
 void setupSensorsPins()
 {
@@ -83,7 +96,7 @@ void setupSensorsPins()
 }
 
 int sensorRawLiftDown = 0;
-int sensorRawLiftMiddel1 = 0;
+int sensorRawLiftMiddle1 = 0;
 int sensorRawLiftMiddle2 = 0;
 int sensorRawLiftMiddle3 = 0;
 int sensorRawLiftMiddle4 = 0;
@@ -101,7 +114,7 @@ int cartFlags = 0;
 void updateSensorState()
 {
   sensorRawLiftDown = digitalRead(Pin_Lift_Down);
-  sensorRawLiftMiddel1 = digitalRead(Pin_Lift_Middle_1);
+  sensorRawLiftMiddle1 = digitalRead(Pin_Lift_Middle_1);
   sensorRawLiftMiddle2 = analogRead(Pin_Lift_Middle_2);
   sensorRawLiftMiddle3 = analogRead(Pin_Lift_Middle_3);
   sensorRawLiftMiddle4 = analogRead(Pin_Lift_Middle_4);
@@ -114,7 +127,7 @@ void updateSensorState()
   sensorRawCartOnLift = digitalRead(Pin_Cart_On_Lift);
 
   liftFlags = sensorRawLiftDown << 0
-  | !sensorRawLiftMiddel1 << 1
+  | !sensorRawLiftMiddle1 << 1
   | (sensorRawLiftMiddle2 < threshhold ? 1 : 0) << 2
   | (sensorRawLiftMiddle3 < threshhold ? 1 : 0) << 3
   | (sensorRawLiftMiddle4 < threshhold ? 1 : 0) << 4
@@ -127,13 +140,12 @@ void updateSensorState()
   | !sensorRawCartOnLift << 3;
 }
 
-
 void setup()
 {
   setupSensorsPins();
   setupMotorPins();
   Serial.setTimeout(100);
-  Serial.begin(9600);
+  Serial.begin(57600);
 }
 
 void readCommand()
@@ -146,14 +158,20 @@ void readCommand()
 
     switch (buffer[0])
     {
-    case Motor_Forward:
+    case Command_Motor_Forward:
       motorForward(buffer[1]);
       break;
-    case Motor_Backward:
+    case Command_Motor_Backward:
       motorBackward(buffer[1]);
       break;
-    case Motor_Stopped:
+    case Command_Motor_Stop:
       motorStop();
+      break;
+    case Command_Set_Probe_Sleep:
+      probeSleep = buffer[1];
+      break;
+    case Command_Set_Threshhold:
+      threshhold = ((int) buffer[1]) * 10;
       break;
     default:
       break;
@@ -163,10 +181,29 @@ void readCommand()
 
 void sendState()
 {
+  #ifdef DEBUG
+  Serial.print(liftFlags); Serial.print(',');
+  Serial.print(cartFlags); Serial.print(',');
+  Serial.print(motorState); Serial.print(',');
+  Serial.print(motorSpeed); Serial.print(',');
+  Serial.print(sensorRawLiftDown); Serial.print(',');
+  Serial.print(sensorRawLiftMiddle1); Serial.print(',');
+  Serial.print(sensorRawLiftMiddle2); Serial.print(',');
+  Serial.print(sensorRawLiftMiddle3); Serial.print(',');
+  Serial.print(sensorRawLiftMiddle4); Serial.print(',');
+  Serial.print(sensorRawLiftMiddle5); Serial.print(',');
+  Serial.print(sensorRawLiftUp); Serial.print(',');
+  Serial.print(sensorRawCartOnLift); Serial.print(',');
+  Serial.print(sensorRawCartAtStation); Serial.print(',');
+  Serial.print(sensorRawCartRideFinish); Serial.print(',');
+  Serial.print(sensorRawCartRideStart);
+  Serial.println();
+  #else
   Serial.write(liftFlags);
   Serial.write(cartFlags);
   Serial.write(motorState);
   Serial.write(motorSpeed);
+  #endif
 }
 
 void loop()
@@ -177,6 +214,6 @@ void loop()
   sendState();
   readCommand();
 
-  unsigned long delta = 50UL + currTime - millis();
+  unsigned long delta = probeSleep + currTime - millis();
   delay(delta);
 }
