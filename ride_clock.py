@@ -66,7 +66,7 @@ class ClockRideStateMachine:
         self._handle_coaster_event(self._coaster.output.get_nowait())
       if not self._scheduler_events.empty():
         self._handle_scheduler_event(self._scheduler_events.get_nowait())
-      sleep(0.01)
+      sleep(0.001)
     self._logger.info('Finished clock ride')
 
   def _handle_coaster_event(self, event):
@@ -106,7 +106,7 @@ class ClockRideStateMachine:
     self._logger.info('Lift reach bottom')
 
   def _on_exit_bottom(self):
-    self.lift_at_bottom = False
+    self._lift_at_bottom = False
 
   def _on_enter_ride_finish(self):
     if not self._lift_going_down:
