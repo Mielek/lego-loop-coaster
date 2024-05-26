@@ -15,7 +15,7 @@ coaster.start()
 clockRide = ClockRideStateMachine(coaster)
 singleRide = SingleRideStateMachine(coaster)
 
-hostName = "localhost"
+hostName = "0.0.0.0"
 serverPort = 8080
 
 class DrahaController(BaseHTTPRequestHandler):
@@ -25,16 +25,20 @@ class DrahaController(BaseHTTPRequestHandler):
       clockRide.stop()
       singleRide.start()
       self.send_response(200)
+      self.end_headers()
     elif self.path.endswith('/clock'):
       singleRide.stop()
       clockRide.start()
       self.send_response(200)
+      self.end_headers()
     elif self.path.endswith('/stop'):
       singleRide.stop()
       clockRide.stop()
       self.send_response(200)
+      self.end_headers()
     else:
       self.send_response(404)
+      self.end_headers()
     pass
 
 webServer = HTTPServer((hostName, serverPort), DrahaController)
