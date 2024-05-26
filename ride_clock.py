@@ -10,6 +10,7 @@ class ClockRideStateMachine:
   def __init__(self, coaster: Coaster):
     self._logger = logging.getLogger('Clock ride')
     self._running = False
+    self._thread = None
     self._scheduler = Scheduler()
     self._scheduler_events = Queue()
     self._coaster = coaster
@@ -25,34 +26,37 @@ class ClockRideStateMachine:
       SensorEvent(Sensor.Lift_Top, SensorEventType.Exit): self._on_exit_top,
       SensorEvent(Sensor.Cart_RideFinish, SensorEventType.Enter): self._on_enter_ride_finish,
       SensorEvent(Sensor.Cart_RideStart, SensorEventType.Enter): self._on_enter_ride_start,
-      SensorEvent(Sensor.Cart_Lift, SensorEventType.Enter): self._on_enter_lift
+      SensorEvent(Sensor.Cart_Lift, SensorEventType.Enter): self._on_enter_lift,
+      SensorEvent(Sensor.Cart_Station, SensorEventType.Enter): self._on_enter_station
     }
 
   def start(self):
-    self._cart_top = False
-    self._cart_riding = False
-    self._cart_finished = False
-
-    self._lift_going_down = False
-    self._lift_at_bottom = False
-    self._actual_level = -1
-
-    self._scheduler.every().hour.at(':00').do(lambda: self._scheduler_events.put(0))
-    self._scheduler.every().hour.at(':10').do(lambda: self._scheduler_events.put(1))
-    self._scheduler.every().hour.at(':20').do(lambda: self._scheduler_events.put(2))
-    self._scheduler.every().hour.at(':30').do(lambda: self._scheduler_events.put(3))
-    self._scheduler.every().hour.at(':40').do(lambda: self._scheduler_events.put(4))
-    self._scheduler.every().hour.at(':50').do(lambda: self._scheduler_events.put(5))
-
     if not self._running:
+      self._cart_top = False
+      self._cart_riding = False
+      self._cart_finished = False
+
+      self._lift_going_down = False
+      self._lift_at_bottom = False
+      self._actual_level = -1
+
+      self._scheduler.every().hour.at(':00').do(lambda: self._scheduler_events.put(0))
+      self._scheduler.every().hour.at(':10').do(lambda: self._scheduler_events.put(1))
+      self._scheduler.every().hour.at(':20').do(lambda: self._scheduler_events.put(2))
+      self._scheduler.every().hour.at(':30').do(lambda: self._scheduler_events.put(3))
+      self._scheduler.every().hour.at(':40').do(lambda: self._scheduler_events.put(4))
+      self._scheduler.every().hour.at(':50').do(lambda: self._scheduler_events.put(5))
+
+      self._handle_scheduler_event((int)(datetime.now().minute / 10) % 6)
+
       self._running = True
       self._thread = Thread(name='Clock ride', target=self._run)
       self._thread.start()
 
-    self._handle_scheduler_event((int)(datetime.now().minute / 10) % 6)
-
   def stop(self):
     self._running = False
+    if self._thread != None:
+      self._thread.join()
 
   def _run(self):
     self._logger.info('Starting clock ride')
@@ -72,7 +76,7 @@ class ClockRideStateMachine:
 
   def _handle_scheduler_event(self, event):
     self._expected_level = event
-    self._coaster.motor_forward(126)
+    self._coaster.motor_forward(255)
     self._logger.info('Move lift from {} to {}'.format(self._actual_level, self._expected_level))
 
   def _on_level_enter(self, level):
@@ -106,7 +110,7 @@ class ClockRideStateMachine:
 
   def _on_enter_ride_finish(self):
     if not self._lift_going_down:
-      self._coaster.motor_forward(96)
+      self._coaster.motor_forward(126)
     self._logger.info('Ride finished')
 
   def _on_enter_ride_start(self):
@@ -117,7 +121,10 @@ class ClockRideStateMachine:
     if self._lift_at_bottom:
       self._logger.info('Cart loaded on lift')
       if self._actual_level != self._expected_level:
-        self._coaster.motor_forward(126)
+        self._coaster.motor_forward(255)
+
+  def _on_enter_station(self):
+    self._logger.info('Cart on station')
 
 
 if __name__ == '__main__':
