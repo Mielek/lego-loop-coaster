@@ -55,6 +55,7 @@ class ClockRideStateMachine:
 
   def stop(self):
     self._running = False
+    self._coaster.motor_stop()
     if self._thread != None:
       self._thread.join()
 

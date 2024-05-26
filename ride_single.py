@@ -33,6 +33,7 @@ class SingleRideStateMachine:
 
   def stop(self):
     self._finished = True
+    self._coaster.motor_stop()
     if self._thread != None:
       self._thread.join()
 
