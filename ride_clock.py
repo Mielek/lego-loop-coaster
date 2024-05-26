@@ -47,11 +47,11 @@ class ClockRideStateMachine:
       self._scheduler.every().hour.at(':40').do(lambda: self._scheduler_events.put(4))
       self._scheduler.every().hour.at(':50').do(lambda: self._scheduler_events.put(5))
 
-      self._handle_scheduler_event((int)(datetime.now().minute / 10) % 6)
-
       self._running = True
       self._thread = Thread(name='Clock ride', target=self._run)
       self._thread.start()
+
+      self._handle_scheduler_event((int)(datetime.now().minute / 10) % 6)
 
   def stop(self):
     self._running = False
